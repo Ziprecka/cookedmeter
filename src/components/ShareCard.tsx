@@ -11,8 +11,11 @@ export function ShareCard({
   result: CookedResult;
   watermark?: boolean;
 }) {
+  const diagnosis = excerpt(result.one_line_diagnosis, 96);
+  const memeVerdict = excerpt(result.meme_verdict, 104);
+
   return (
-    <div className="relative aspect-[9/16] w-full min-w-[260px] overflow-hidden rounded-[2rem] bg-[#080606] p-5 text-white shadow-2xl">
+    <div className="relative aspect-[9/16] w-full min-w-[260px] overflow-hidden rounded-[1.6rem] bg-[#080606] p-5 text-white shadow-2xl">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_10%,rgba(255,91,26,.42),transparent_34%),radial-gradient(circle_at_90%_55%,rgba(203,255,0,.18),transparent_25%),linear-gradient(180deg,#130c08,#070606_62%,#030303)]" />
       <div className="absolute -right-14 -top-14 size-44 rounded-full bg-orange-500/25 blur-3xl" />
       <div className="relative flex h-full flex-col">
@@ -25,14 +28,14 @@ export function ShareCard({
           </div>
         </div>
 
-        <div className="mt-8 rounded-3xl border border-white/12 bg-black/34 p-4">
-          <p className="text-sm font-semibold leading-6 text-white/70">
-            {excerpt(situation, 118)}
+        <div className="mt-6 rounded-2xl border border-white/12 bg-black/34 p-3.5">
+          <p className="line-clamp-4 text-sm font-semibold leading-5 text-white/70">
+            {excerpt(situation, 96)}
           </p>
         </div>
 
-        <div className="mt-7">
-          <div className={`bg-gradient-to-r ${getScoreTone(result.cooked_score)} bg-clip-text text-7xl font-black leading-none text-transparent`}>
+        <div className="mt-6">
+          <div className={`bg-gradient-to-r ${getScoreTone(result.cooked_score)} bg-clip-text text-6xl font-black leading-none text-transparent`}>
             {result.cooked_score === null ? "SAFE" : `${result.cooked_score}%`}
           </div>
           <div className="mt-3 inline-flex rounded-2xl border border-lime-200/30 bg-lime-300 px-4 py-2 text-sm font-black text-black">
@@ -40,15 +43,15 @@ export function ShareCard({
           </div>
         </div>
 
-        <p className="mt-7 text-2xl font-black leading-8">
-          {result.one_line_diagnosis}
+        <p className="mt-6 text-[1.35rem] font-black leading-7">
+          {diagnosis}
         </p>
 
-        <div className="mt-auto rounded-3xl border border-orange-300/20 bg-orange-500/12 p-4">
+        <div className="mt-auto rounded-2xl border border-orange-300/20 bg-orange-500/12 p-3.5">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-orange-100/64">
             Meme verdict
           </p>
-          <p className="mt-2 text-xl font-black leading-7">{result.meme_verdict}</p>
+          <p className="mt-2 text-lg font-black leading-6">{memeVerdict}</p>
         </div>
 
         {watermark ? (

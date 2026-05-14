@@ -51,17 +51,28 @@ export async function POST(request: Request) {
   const cancelUrl = new URL("/cancel", origin);
   if (returnTo) cancelUrl.searchParams.set("return_to", returnTo);
 
-  const session = await stripe.checkout.sessions.create({
-    mode: getStripeMode(productType),
-    line_items: [{ price, quantity: 1 }],
-    success_url: successUrl.toString(),
-    cancel_url: cancelUrl.toString(),
-    allow_promotion_codes: true,
-    metadata: {
-      anon_session_id: anonSessionId,
-      product_type: productType,
-    },
-  });
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: getStripeMode(productType),
+      line_items: [{ price, quantity: 1 }],
+      success_url: successUrl.toString(),
+      cancel_url: cancelUrl.toString(),
+      allow_promotion_codes: true,
+      metadata: {
+        anon_session_id: anonSessionId,
+        product_type: productType,
+      },
+    });
 
-  return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url });
+  } catch (error) {
+    console.error("Stripe checkout session failed", error);
+    return NextResponse.json(
+      {
+        error:
+          "Checkout is not connected to the right live Stripe prices yet.",
+      },
+      { status: 502 },
+    );
+  }
 }

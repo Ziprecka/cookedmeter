@@ -31,14 +31,19 @@ export async function POST(request: Request) {
     const productType = session.metadata?.product_type as StripeProductType | undefined;
 
     if (anonSessionId && productType) {
-      await grantPurchaseToSession({
-        anonSessionId,
-        stripeSessionId: session.id,
-        stripeCustomerId:
-          typeof session.customer === "string" ? session.customer : session.customer?.id,
-        productType,
-        amountPaid: session.amount_total,
-      });
+      try {
+        await grantPurchaseToSession({
+          anonSessionId,
+          stripeSessionId: session.id,
+          stripeCustomerId:
+            typeof session.customer === "string" ? session.customer : session.customer?.id,
+          productType,
+          amountPaid: session.amount_total,
+        });
+      } catch (error) {
+        console.error("Stripe webhook purchase grant failed", error);
+        return NextResponse.json({ error: "Grant failed." }, { status: 500 });
+      }
     }
   }
 

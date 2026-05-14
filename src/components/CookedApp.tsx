@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Flame } from "lucide-react";
-import { homepagePlaceholders } from "@/lib/cooked-data";
+import type { CookedResult } from "@/lib/schemas";
 import { buildStoredResult, encodeShareState } from "@/lib/cooked-utils";
 import {
   getUsageStatus,
@@ -28,7 +28,6 @@ export function CookedApp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [usage, setUsage] = useState<UsageState>(() => readClientUsage());
-  const [exampleIndex, setExampleIndex] = useState(0);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallStage, setPaywallStage] = useState<PaywallStage>("refill");
   const [loadingProduct, setLoadingProduct] = useState("");
@@ -36,13 +35,6 @@ export function CookedApp() {
   useEffect(() => {
     writeClientUsage(usage);
   }, [usage]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setExampleIndex((current) => (current + 1) % homepagePlaceholders.length);
-    }, 2800);
-    return () => window.clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     const currentUsage = usage;
@@ -110,7 +102,7 @@ export function CookedApp() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      const data = await readJson(response);
       if (response.status === 402 && data.error === "PAYWALL_REQUIRED") {
         if (data.usage && usage) {
           const next = mergeServerUsage(usage, data.usage as ServerUsagePayload);
@@ -123,6 +115,7 @@ export function CookedApp() {
         return;
       }
       if (!response.ok) throw new Error(data.error ?? "The oven jammed.");
+      if (!data.result) throw new Error("The oven returned an empty verdict.");
 
       if (data.usage && usage) {
         const next = mergeServerUsage(usage, data.usage as ServerUsagePayload);
@@ -153,7 +146,7 @@ export function CookedApp() {
           returnTo: window.location.href,
         }),
       });
-      const data = await response.json();
+      const data = await readJson(response);
       if (!response.ok || !data.url) {
         throw new Error(data.error ?? "Stripe is not ready yet.");
       }
@@ -193,11 +186,8 @@ export function CookedApp() {
         <p className="mt-5 text-lg font-semibold text-white/58 sm:text-xl">
           Drop the situation. Get the verdict.
         </p>
-        <p className="mt-4 min-h-5 text-xs font-bold text-orange-100/38 sm:text-sm">
-          Try: {homepagePlaceholders[exampleIndex]}
-        </p>
 
-        <div className="mt-5 w-full">
+        <div className="mt-7 w-full">
           <CookedInput
             situation={situation}
             loading={loading}
@@ -238,4 +228,25 @@ export function CookedApp() {
       />
     </main>
   );
+}
+
+async function readJson(response: Response) {
+  const text = await response.text();
+  if (!text) return {};
+  try {
+    return JSON.parse(text) as {
+      error?: string;
+      url?: string;
+      usage?: ServerUsagePayload;
+      paywall_stage?: PaywallStage;
+      result?: CookedResult;
+      [key: string]: unknown;
+    };
+  } catch {
+    return {
+      error: response.ok
+        ? "The oven returned something weird."
+        : "Stripe hiccuped. Try again in a second.",
+    };
+  }
 }
