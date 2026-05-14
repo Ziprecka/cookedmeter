@@ -14,6 +14,21 @@ export const stripePriceIds: Record<StripeProductType, string | undefined> = {
   unlimited: process.env.STRIPE_PRICE_UNLIMITED,
 };
 
+export const stripeProductIds: Record<StripeProductType, string | undefined> = {
+  refill: process.env.STRIPE_PRODUCT_REFILL,
+  extra_crispy: process.env.STRIPE_PRODUCT_EXTRA_CRISPY,
+  unlimited: process.env.STRIPE_PRODUCT_UNLIMITED,
+};
+
+export const stripeProductCopy: Record<
+  StripeProductType,
+  { name: string; amount: number }
+> = {
+  refill: { name: "Cooked Refill", amount: 299 },
+  extra_crispy: { name: "Extra Crispy Pack", amount: 499 },
+  unlimited: { name: "Unlimited Cooked", amount: 499 },
+};
+
 export function getStripeMode(productType: StripeProductType) {
   return productType === "unlimited" ? "subscription" : "payment";
 }

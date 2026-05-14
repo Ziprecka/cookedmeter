@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   getStripeMode,
   stripe,
+  stripeProductCopy,
+  stripeProductIds,
   stripePriceIds,
   type StripeProductType,
 } from "@/lib/stripe";
@@ -32,13 +34,7 @@ export async function POST(request: Request) {
 
   const { productType, anonSessionId, returnTo } = parsed.data;
   const price = stripePriceIds[productType as StripeProductType];
-
-  if (!price) {
-    return NextResponse.json(
-      { error: "This pack is not configured in Stripe yet." },
-      { status: 503 },
-    );
-  }
+  const product = stripeProductIds[productType as StripeProductType];
 
   const origin =
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -52,9 +48,20 @@ export async function POST(request: Request) {
   if (returnTo) cancelUrl.searchParams.set("return_to", returnTo);
 
   try {
+    const lineItem = price
+      ? { price, quantity: 1 }
+      : buildInlineLineItem(productType, product);
+
+    if (!lineItem) {
+      return NextResponse.json(
+        { error: "This pack is not configured in Stripe yet." },
+        { status: 503 },
+      );
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: getStripeMode(productType),
-      line_items: [{ price, quantity: 1 }],
+      line_items: [lineItem],
       success_url: successUrl.toString(),
       cancel_url: cancelUrl.toString(),
       allow_promotion_codes: true,
@@ -70,9 +77,28 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Checkout is not connected to the right live Stripe prices yet.",
+          "Checkout is not connected to the right live Stripe products yet.",
       },
       { status: 502 },
     );
   }
+}
+
+function buildInlineLineItem(
+  productType: StripeProductType,
+  product?: string,
+) {
+  if (!product) return null;
+  const item = stripeProductCopy[productType];
+  return {
+    quantity: 1,
+    price_data: {
+      currency: "usd",
+      product,
+      unit_amount: item.amount,
+      ...(productType === "unlimited"
+        ? { recurring: { interval: "month" as const } }
+        : {}),
+    },
+  };
 }
