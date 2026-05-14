@@ -75,16 +75,21 @@ export const pricingTiers = [
   {
     name: "Free",
     price: "$0",
-    description: "5 checks/day, watermarked cards",
+    description: "5 free cooked checks, watermarked cards",
   },
   {
-    name: "Cooked Pack",
+    name: "Cooked Refill",
     price: "$2.99",
-    description: "No watermark, brutal modes, HD cards",
+    description: "10 more cooked checks",
   },
   {
-    name: "Lifetime",
-    price: "$9.99",
-    description: "Unlimited checks, all modes",
+    name: "Extra Crispy",
+    price: "$4.99",
+    description: "25 more checks and no-watermark cards",
+  },
+  {
+    name: "Unlimited",
+    price: "$4.99/mo",
+    description: "Unlimited checks, no watermark, HD cards",
   },
 ] as const;

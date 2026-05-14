@@ -2,11 +2,18 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { COOKED_SYSTEM_PROMPT } from "@/lib/prompts/cookedPrompt";
 import { buildFallbackResult, getCookedLevel } from "@/lib/cooked-utils";
+import { checkRateLimit, getRateLimitKey } from "@/lib/rate-limit";
 import {
   cookedRequestSchema,
   cookedResultSchema,
   type CookedResult,
 } from "@/lib/schemas";
+import { readUsageCookie, serializeUsageCookie, recordGeneration } from "@/lib/usage";
+import {
+  getAnonSessionFromRequest,
+  getServerUsageStatus,
+  recordServerGeneration,
+} from "@/lib/usage-server";
 
 const cookedResultJsonSchema = {
   name: "cooked_meter_result",
@@ -71,10 +78,53 @@ export async function POST(request: Request) {
     );
   }
 
+  const anonSessionId = getAnonSessionFromRequest(
+    request,
+    parsed.data.anon_session_id,
+  );
+
+  if (!anonSessionId) {
+    return NextResponse.json(
+      { error: "Missing anonymous session." },
+      { status: 400 },
+    );
+  }
+
+  const cookieUsage = readUsageCookie(request.headers.get("cookie"));
+  const usageStatus = await getServerUsageStatus(anonSessionId, cookieUsage);
+  const rate = checkRateLimit(
+    getRateLimitKey(request, anonSessionId),
+    usageStatus.hasUnlimited || usageStatus.paidCredits > 0 ? 60 : 10,
+  );
+
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Cooldown. The oven needs a minute." },
+      { status: 429 },
+    );
+  }
+
+  if (!usageStatus.canGenerate) {
+    return NextResponse.json(
+      {
+        error: "PAYWALL_REQUIRED",
+        generation_count: usageStatus.generationCount,
+        paywall_stage: usageStatus.paywallStage,
+        usage: usageStatus,
+      },
+      { status: 402 },
+    );
+  }
+
   if (!process.env.OPENAI_API_KEY) {
+    const updatedUsage = await recordServerGeneration(usageStatus);
+    const localUsage = cookieUsage ? recordGeneration(cookieUsage) : null;
     return NextResponse.json({
       result: buildFallbackResult(parsed.data),
       mode: "demo",
+      usage: updatedUsage,
+    }, {
+      headers: localUsage ? { "Set-Cookie": serializeUsageCookie(localUsage) } : undefined,
     });
   }
 
@@ -114,8 +164,17 @@ export async function POST(request: Request) {
           : getCookedLevel(Math.round(raw.cooked_score)),
     };
     const result = cookedResultSchema.parse(normalized);
+    const updatedUsage = await recordServerGeneration(usageStatus);
+    const localUsage = cookieUsage ? recordGeneration(cookieUsage) : null;
 
-    return NextResponse.json({ result, mode: "live" });
+    return NextResponse.json(
+      { result, mode: "live", usage: updatedUsage },
+      {
+        headers: localUsage
+          ? { "Set-Cookie": serializeUsageCookie(localUsage) }
+          : undefined,
+      },
+    );
   } catch (error) {
     console.error(error);
     return NextResponse.json(

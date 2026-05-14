@@ -3,18 +3,19 @@
 import { Flame } from "lucide-react";
 import { useEffect, useState } from "react";
 import { homepagePlaceholders } from "@/lib/cooked-data";
-import { ExampleChips } from "./ExampleChips";
 
 export function CookedInput({
   situation,
   loading,
   error,
+  usageLabel,
   onSituationChange,
   onSubmit,
 }: {
   situation: string;
   loading: boolean;
   error: string;
+  usageLabel: string;
   onSituationChange: (value: string) => void;
   onSubmit: () => void;
 }) {
@@ -46,13 +47,13 @@ export function CookedInput({
         Check my cooked level
       </button>
 
+      <p className="mt-3 text-center text-xs font-black uppercase tracking-[0.18em] text-white/28">
+        {usageLabel}
+      </p>
+
       {error ? (
         <p className="mt-4 text-center text-sm font-bold text-red-300">{error}</p>
       ) : null}
-
-      <div className="mt-5">
-        <ExampleChips onPick={onSituationChange} />
-      </div>
     </div>
   );
 }

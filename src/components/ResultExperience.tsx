@@ -15,6 +15,7 @@ import { toPng } from "html-to-image";
 import { decodeShareState, encodeShareState, excerpt } from "@/lib/cooked-utils";
 import { adsenseConfig } from "@/lib/adsense";
 import type { StoredResult } from "@/lib/schemas";
+import { getUsageStatus, readClientUsage } from "@/lib/usage";
 import { AdSlot } from "./AdSlot";
 import { LoadingReveal } from "./LoadingReveal";
 import { ResultDetails } from "./ResultDetails";
@@ -26,6 +27,8 @@ export function ResultExperience({ shared }: { shared?: string }) {
   const [revealing, setRevealing] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
   const [notice, setNotice] = useState("");
+  const [usageLabel, setUsageLabel] = useState("");
+  const [watermark, setWatermark] = useState(true);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,6 +48,10 @@ export function ResultExperience({ shared }: { shared?: string }) {
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStored(next);
+    const usage = readClientUsage();
+    const status = getUsageStatus(usage);
+    setUsageLabel(status.label);
+    setWatermark(!status.noWatermark);
     const timeout = window.setTimeout(() => setRevealing(false), 2500);
     return () => window.clearTimeout(timeout);
   }, [shared]);
@@ -172,6 +179,11 @@ export function ResultExperience({ shared }: { shared?: string }) {
       {stored ? (
         <div className="relative z-10 mx-auto px-4 pb-8 pt-4 sm:px-6">
           <ResultVerdict stored={stored} revealed={!revealing} />
+          {usageLabel ? (
+            <p className="mt-3 text-center text-xs font-black uppercase tracking-[0.18em] text-white/30">
+              {usageLabel}
+            </p>
+          ) : null}
 
           <section className="mx-auto mt-6 max-w-2xl rounded-[1.4rem] border border-white/10 bg-black/34 p-4 text-center">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-white/36">
@@ -210,7 +222,7 @@ export function ResultExperience({ shared }: { shared?: string }) {
 
           <div className="fixed -left-[9999px] top-0 w-[420px]" aria-hidden>
             <div ref={cardRef}>
-              <ShareCard situation={stored.situation} result={stored.result} watermark />
+              <ShareCard situation={stored.situation} result={stored.result} watermark={watermark} />
             </div>
           </div>
 
@@ -225,7 +237,7 @@ export function ResultExperience({ shared }: { shared?: string }) {
                 <X className="size-5" />
               </button>
               <div className="w-full max-w-[360px]">
-                <ShareCard situation={stored.situation} result={stored.result} watermark />
+                <ShareCard situation={stored.situation} result={stored.result} watermark={watermark} />
               </div>
             </div>
           ) : null}

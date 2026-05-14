@@ -5,10 +5,10 @@ export default function PricingPage() {
   return (
     <StaticPage title="Pricing">
       <p>
-        CookedMeter stays free to try. Upgrades are placeholders for future
-        share-card polish and extra roast modes.
+        CookedMeter stays free to try. Upgrades keep the oven running without
+        making the homepage weird.
       </p>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-4">
         {pricingTiers.map((tier) => (
           <div key={tier.name} className="rounded-3xl border border-white/10 bg-white/[.045] p-5">
             <p className="text-sm font-black text-white/52">{tier.name}</p>

@@ -7,6 +7,7 @@ export const cookedRequestSchema = z.object({
     .min(8, "Give CookedMeter a little more evidence.")
     .max(1200, "Keep it under 1,200 characters so the roast stays punchy."),
   source: z.literal("homepage").optional(),
+  anon_session_id: z.string().trim().min(8).max(120).optional(),
 });
 
 export const cookedResultSchema = z.object({

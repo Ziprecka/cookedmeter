@@ -4,24 +4,84 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Flame } from "lucide-react";
-import { examples } from "@/lib/cooked-data";
+import { homepagePlaceholders } from "@/lib/cooked-data";
 import { buildStoredResult, encodeShareState } from "@/lib/cooked-utils";
+import {
+  getUsageStatus,
+  mergeServerUsage,
+  readClientUsage,
+  writeClientUsage,
+  type PaywallStage,
+  type ServerUsagePayload,
+  type UsageState,
+} from "@/lib/usage";
 import { CookedInput } from "./CookedInput";
 import { LoadingReveal } from "./LoadingReveal";
+import { PaywallModal } from "./PaywallModal";
 
 export function CookedApp() {
   const router = useRouter();
-  const [situation, setSituation] = useState("");
+  const [situation, setSituation] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("example") ?? "";
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [usage, setUsage] = useState<UsageState>(() => readClientUsage());
+  const [exampleIndex, setExampleIndex] = useState(0);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallStage, setPaywallStage] = useState<PaywallStage>("refill");
+  const [loadingProduct, setLoadingProduct] = useState("");
 
   useEffect(() => {
-    const example = new URLSearchParams(window.location.search).get("example");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (example) setSituation(example);
+    writeClientUsage(usage);
+  }, [usage]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setExampleIndex((current) => (current + 1) % homepagePlaceholders.length);
+    }, 2800);
+    return () => window.clearInterval(interval);
   }, []);
 
-  const request = useMemo(() => ({ situation, source: "homepage" as const }), [situation]);
+  useEffect(() => {
+    const currentUsage = usage;
+
+    async function syncUsage() {
+      try {
+        const response = await fetch(
+          `/api/usage/status?anon_session_id=${encodeURIComponent(currentUsage.anonSessionId)}`,
+        );
+        const data = await response.json();
+        if (!response.ok || !data.usage) return;
+        const next = mergeServerUsage(currentUsage, data.usage as ServerUsagePayload);
+        if (
+          next.generationCount === currentUsage.generationCount &&
+          next.paidCredits === currentUsage.paidCredits &&
+          next.unlockTier === currentUsage.unlockTier &&
+          next.noWatermark === currentUsage.noWatermark
+        ) {
+          return;
+        }
+        writeClientUsage(next);
+        setUsage(next);
+      } catch {
+        // Local usage still protects the demo path if Supabase env is missing.
+      }
+    }
+
+    void syncUsage();
+  }, [usage]);
+
+  const usageStatus = getUsageStatus(usage);
+  const request = useMemo(
+    () => ({
+      situation,
+      source: "homepage" as const,
+      anon_session_id: usage?.anonSessionId,
+    }),
+    [situation, usage?.anonSessionId],
+  );
 
   async function checkCooked() {
     const payload = { ...request, situation: situation.trim() };
@@ -29,6 +89,17 @@ export function CookedApp() {
 
     if (payload.situation.length < 8) {
       setError("Give the oracle at least one real detail.");
+      return;
+    }
+
+    if (!usage?.anonSessionId) {
+      setError("The oven is still warming up. Try again.");
+      return;
+    }
+
+    if (!usageStatus.canGenerate) {
+      setPaywallStage(usageStatus.paywallStage);
+      setPaywallOpen(true);
       return;
     }
 
@@ -40,7 +111,24 @@ export function CookedApp() {
         body: JSON.stringify(payload),
       });
       const data = await response.json();
+      if (response.status === 402 && data.error === "PAYWALL_REQUIRED") {
+        if (data.usage && usage) {
+          const next = mergeServerUsage(usage, data.usage as ServerUsagePayload);
+          writeClientUsage(next);
+          setUsage(next);
+        }
+        setPaywallStage(data.paywall_stage ?? usageStatus.paywallStage);
+        setPaywallOpen(true);
+        setLoading(false);
+        return;
+      }
       if (!response.ok) throw new Error(data.error ?? "The oven jammed.");
+
+      if (data.usage && usage) {
+        const next = mergeServerUsage(usage, data.usage as ServerUsagePayload);
+        writeClientUsage(next);
+        setUsage(next);
+      }
 
       const stored = buildStoredResult(payload, data.result);
       localStorage.setItem("cookedmeter:last-result", JSON.stringify(stored));
@@ -51,10 +139,29 @@ export function CookedApp() {
     }
   }
 
-  function pickRandomExample() {
-    const next = examples[Math.floor(Math.random() * examples.length)];
-    setSituation(next);
+  async function startCheckout(productType: "refill" | "extra_crispy" | "unlimited") {
+    if (!usage) return;
+    setLoadingProduct(productType);
     setError("");
+    try {
+      const response = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productType,
+          anonSessionId: usage.anonSessionId,
+          returnTo: window.location.href,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.url) {
+        throw new Error(data.error ?? "Stripe is not ready yet.");
+      }
+      window.location.href = data.url;
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Stripe is not ready yet.");
+      setLoadingProduct("");
+    }
   }
 
   return (
@@ -86,19 +193,16 @@ export function CookedApp() {
         <p className="mt-5 text-lg font-semibold text-white/58 sm:text-xl">
           Drop the situation. Get the verdict.
         </p>
-        <button
-          type="button"
-          onClick={pickRandomExample}
-          className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-orange-100/44 transition hover:text-orange-100"
-        >
-          Random example
-        </button>
+        <p className="mt-4 min-h-5 text-xs font-bold text-orange-100/38 sm:text-sm">
+          Try: {homepagePlaceholders[exampleIndex]}
+        </p>
 
         <div className="mt-5 w-full">
           <CookedInput
             situation={situation}
             loading={loading}
             error={error}
+            usageLabel={usageStatus.label}
             onSituationChange={(value) => {
               setSituation(value);
               setError("");
@@ -124,6 +228,14 @@ export function CookedApp() {
       </section>
 
       <LoadingReveal active={loading} />
+      <PaywallModal
+        open={paywallOpen}
+        stage={paywallStage}
+        status={usageStatus}
+        loadingProduct={loadingProduct}
+        onCheckout={startCheckout}
+        onClose={() => setPaywallOpen(false)}
+      />
     </main>
   );
 }
