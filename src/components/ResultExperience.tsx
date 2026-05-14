@@ -107,6 +107,24 @@ export function ResultExperience({ shared }: { shared?: string }) {
     setNotice(copied ? "Link copied." : "Copy permission was blocked.");
   }
 
+  async function copyChallenge() {
+    if (!stored) return;
+    const score =
+      stored.result.cooked_score === null
+        ? "safe mode"
+        : `${stored.result.cooked_score}% cooked`;
+    const url = `${window.location.origin}/result?c=${encodeShareState(stored)}`;
+    const copied = await writeClipboard(
+      [
+        `CookedMeter says I'm ${score}.`,
+        `"${stored.result.meme_verdict}"`,
+        "Can you beat my score?",
+        url,
+      ].join("\n"),
+    );
+    setNotice(copied ? "Challenge copied. Send it to the group chat." : "Copy permission was blocked.");
+  }
+
   async function downloadCard() {
     if (!cardRef.current) return;
     const dataUrl = await toPng(cardRef.current, {
@@ -174,7 +192,7 @@ export function ResultExperience({ shared }: { shared?: string }) {
             <ActionButton onClick={downloadCard} icon={<ArrowDownToLine className="size-4" />} label="Download card" />
             <ActionButton onClick={() => setShareOpen(true)} icon={<Eye className="size-4" />} label="Preview share card" />
             <ActionButton onClick={copyResult} icon={<Clipboard className="size-4" />} label="Copy result" />
-            <ActionButton onClick={copyPublicLink} icon={<Link2 className="size-4" />} label="Copy link" />
+            <ActionButton onClick={copyChallenge} icon={<Link2 className="size-4" />} label="Copy challenge" />
           </div>
 
           <div className="mx-auto mt-4 max-w-2xl">

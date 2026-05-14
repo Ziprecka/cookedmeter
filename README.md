@@ -27,7 +27,7 @@ Set `OPENAI_API_KEY` in `.env.local` for live AI results. If the key is missing,
 ```bash
 OPENAI_API_KEY=sk-your-key-here
 OPENAI_MODEL=gpt-4.1-mini
-NEXT_PUBLIC_SITE_URL=https://cookedmeter.vercel.app
+NEXT_PUBLIC_SITE_URL=https://cookedmeter.com
 NEXT_PUBLIC_ADSENSE_ENABLED=false
 NEXT_PUBLIC_ADSENSE_CLIENT_ID=ca-pub-XXXXXXXXXXXXXXXX
 NEXT_PUBLIC_ADSENSE_RESULT_SLOT_ID=0000000000

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import { canLoadAdSense, adsenseConfig } from "@/lib/adsense";
 import "./globals.css";
@@ -48,15 +47,16 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        {canLoadAdSense() ? (
-          <Script
+      {canLoadAdSense() ? (
+        <head>
+          <script
             async
             src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseConfig.clientId}`}
             crossOrigin="anonymous"
-            strategy="afterInteractive"
           />
-        ) : null}
+        </head>
+      ) : null}
+      <body className="min-h-full flex flex-col">
         {children}
       </body>
     </html>
