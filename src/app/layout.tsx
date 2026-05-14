@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { canLoadAdSense, adsenseConfig } from "@/lib/adsense";
 import "./globals.css";
 
@@ -58,6 +59,7 @@ export default function RootLayout({
           />
         ) : null}
         {children}
+        <Analytics />
       </body>
     </html>
   );
