@@ -32,6 +32,12 @@ export const storedResultSchema = z.object({
   createdAt: z.string(),
 });
 
+export const publicResultCreateSchema = z.object({
+  stored: storedResultSchema,
+  anon_session_id: z.string().trim().min(8).max(120).optional(),
+});
+
 export type CookedRequest = z.infer<typeof cookedRequestSchema>;
 export type CookedResult = z.infer<typeof cookedResultSchema>;
 export type StoredResult = z.infer<typeof storedResultSchema>;
+export type PublicResultCreate = z.infer<typeof publicResultCreateSchema>;

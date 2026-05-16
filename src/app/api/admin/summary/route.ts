@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const [sessions, purchases] = await Promise.all([
+  const [sessions, purchases, publicResults] = await Promise.all([
     supabase
       .from("usage_sessions")
       .select(
@@ -31,13 +31,22 @@ export async function POST(request: Request) {
       )
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("public_results")
+      .select(
+        "share_slug,situation_excerpt,cooked_score,cooked_level,meme_verdict,views_count,created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
 
   if (sessions.error) throw sessions.error;
   if (purchases.error) throw purchases.error;
+  if (publicResults.error) throw publicResults.error;
 
   return NextResponse.json({
     sessions: sessions.data ?? [],
     purchases: purchases.data ?? [],
+    publicResults: publicResults.data ?? [],
   });
 }

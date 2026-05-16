@@ -124,9 +124,9 @@ export function buildFallbackResult(request: CookedRequest): CookedResult {
     one_line_diagnosis:
       "You are not done, but the smoke alarm is definitely learning your name.",
     why_you_are_cooked: [
-      "The timing is giving last-minute DLC with no patch notes.",
-      "There is a real consequence hiding under the funny wording.",
-      "Your current plan appears to be mostly vibes and a charging cable.",
+      "The timing is giving last-minute DLC and you are somehow the unpaid beta tester.",
+      "There is a real consequence hiding under the funny wording, wearing a tiny little fake mustache.",
+      "Your current plan appears to be mostly vibes, panic, and a phone at 12% battery.",
     ],
     why_you_might_not_be_cooked: [
       "The situation still has moving parts you can influence.",
@@ -138,9 +138,9 @@ export function buildFallbackResult(request: CookedRequest): CookedResult {
       "Ask one specific person for one specific piece of help.",
       "Stop adding new chaos until the existing chaos clocks out.",
     ],
-    meme_verdict: `${level}. The group chat is concerned but seated.`,
-    final_line: "You can still recover, but please stop cooking with gasoline.",
-    share_card_summary: `${score}% cooked: ${level}. Recoverable, but not silently.`,
+    meme_verdict: `${level}. The group chat is concerned, but they did pull up a chair.`,
+    final_line: "You can still recover, but stop making decisions like the terms and conditions are chasing you.",
+    share_card_summary: `${score}% cooked: ${level}. The evidence is loud.`,
     safe_mode: false,
   };
 }

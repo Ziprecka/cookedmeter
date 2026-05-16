@@ -170,6 +170,9 @@ export function CookedApp() {
           CookedMeter
         </Link>
         <nav className="flex items-center gap-4 text-xs font-bold text-white/42">
+          <Link className="transition hover:text-white" href="/leaderboard">
+            Leaderboard
+          </Link>
           <Link className="transition hover:text-white" href="/examples">
             Examples
           </Link>
@@ -207,6 +210,9 @@ export function CookedApp() {
           </Link>
           <Link className="transition hover:text-white" href="/pricing">
             Pricing
+          </Link>
+          <Link className="transition hover:text-white" href="/leaderboard">
+            Leaderboard
           </Link>
           <Link className="transition hover:text-white" href="/privacy">
             Privacy

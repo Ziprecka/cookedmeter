@@ -22,17 +22,27 @@ import { ResultDetails } from "./ResultDetails";
 import { ResultVerdict } from "./ResultVerdict";
 import { ShareCard } from "./ShareCard";
 
-export function ResultExperience({ shared }: { shared?: string }) {
+export function ResultExperience({
+  shared,
+  initialStored,
+  publicUrl,
+}: {
+  shared?: string;
+  initialStored?: StoredResult | null;
+  publicUrl?: string;
+}) {
   const [stored, setStored] = useState<StoredResult | null>(null);
   const [revealing, setRevealing] = useState(true);
   const [shareOpen, setShareOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [usageLabel, setUsageLabel] = useState("");
   const [watermark, setWatermark] = useState(true);
+  const [shortUrl, setShortUrl] = useState(publicUrl ?? "");
+  const [sharing, setSharing] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let next: StoredResult | null = null;
+    let next: StoredResult | null = initialStored ?? null;
     if (shared) next = decodeShareState(shared);
 
     if (!next) {
@@ -54,7 +64,7 @@ export function ResultExperience({ shared }: { shared?: string }) {
     setWatermark(!status.noWatermark);
     const timeout = window.setTimeout(() => setRevealing(false), 2500);
     return () => window.clearTimeout(timeout);
-  }, [shared]);
+  }, [shared, initialStored]);
 
   useEffect(() => {
     document.body.style.overflow = shareOpen ? "hidden" : "";
@@ -108,28 +118,9 @@ export function ResultExperience({ shared }: { shared?: string }) {
 
   async function copyPublicLink() {
     if (!stored) return;
-    const copied = await writeClipboard(
-      `${window.location.origin}/result?c=${encodeShareState(stored)}`,
-    );
-    setNotice(copied ? "Link copied." : "Copy permission was blocked.");
-  }
-
-  async function copyChallenge() {
-    if (!stored) return;
-    const score =
-      stored.result.cooked_score === null
-        ? "safe mode"
-        : `${stored.result.cooked_score}% cooked`;
-    const url = `${window.location.origin}/result?c=${encodeShareState(stored)}`;
-    const copied = await writeClipboard(
-      [
-        `CookedMeter says I'm ${score}.`,
-        `"${stored.result.meme_verdict}"`,
-        "Can you beat my score?",
-        url,
-      ].join("\n"),
-    );
-    setNotice(copied ? "Challenge copied. Send it to the group chat." : "Copy permission was blocked.");
+    const url = await ensurePublicLink();
+    const copied = await writeClipboard(url);
+    setNotice(copied ? "Short link copied." : "Copy permission was blocked.");
   }
 
   async function downloadCard() {
@@ -146,17 +137,90 @@ export function ResultExperience({ shared }: { shared?: string }) {
     setNotice("Trophy downloaded.");
   }
 
+  async function createCardFile() {
+    if (!cardRef.current) return null;
+    const dataUrl = await toPng(cardRef.current, {
+      cacheBust: true,
+      pixelRatio: 2,
+      backgroundColor: "#080606",
+    });
+    return dataUrlToFile(dataUrl);
+  }
+
+  async function ensurePublicLink() {
+    if (!stored) return window.location.origin;
+    if (shortUrl) return shortUrl;
+
+    try {
+      const usage = readClientUsage();
+      const response = await fetch("/api/public-results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stored,
+          anon_session_id: usage.anonSessionId,
+        }),
+      });
+      const data = (await response.json()) as { url?: string };
+      if (response.ok && data.url) {
+        setShortUrl(data.url);
+        return data.url;
+      }
+    } catch {
+      // Fall back to encoded state if Supabase is unavailable.
+    }
+
+    return `${window.location.origin}/result?c=${encodeShareState(stored)}`;
+  }
+
   async function shareVerdict() {
     if (!stored) return;
-    if (navigator.share) {
-      await navigator.share({
-        title: "CookedMeter verdict",
-        text: `${excerpt(stored.situation, 84)}: ${stored.result.share_card_summary}`,
-        url: `${window.location.origin}/result?c=${encodeShareState(stored)}`,
-      });
-      return;
+    setSharing(true);
+    setNotice("");
+    try {
+      const url = await ensurePublicLink();
+      const score =
+        stored.result.cooked_score === null
+          ? "Safe Mode"
+          : `${stored.result.cooked_score}% cooked`;
+      const shareText = `CookedMeter says I'm ${score}. ${stored.result.meme_verdict}`;
+      const cardFile = await createCardFile();
+
+      if (
+        cardFile &&
+        navigator.canShare?.({ files: [cardFile] }) &&
+        navigator.share
+      ) {
+        await navigator.share({
+          title: "CookedMeter verdict",
+          text: shareText,
+          url,
+          files: [cardFile],
+        });
+        setNotice("Shared the trophy card.");
+        return;
+      }
+
+      if (navigator.share) {
+        await navigator.share({
+          title: "CookedMeter verdict",
+          text: shareText,
+          url,
+        });
+        return;
+      }
+
+      const copied = await writeClipboard(`${shareText}\n${url}`);
+      setNotice(
+        copied
+          ? "Short verdict copied. Download the card if the app wants a picture."
+          : "Copy permission was blocked.",
+      );
+    } catch {
+      setNotice("Share got blocked. Preview or download the card instead.");
+    } finally {
+      setSharing(false);
     }
-    await copyPublicLink();
   }
 
   return (
@@ -200,11 +264,11 @@ export function ResultExperience({ shared }: { shared?: string }) {
           ) : null}
 
           <div className="mx-auto mt-7 flex max-w-2xl flex-wrap justify-center gap-2">
-            <ActionButton onClick={shareVerdict} icon={<Share2 className="size-4" />} label="Share verdict" primary />
+            <ActionButton onClick={shareVerdict} icon={<Share2 className="size-4" />} label={sharing ? "Making card..." : "Share card"} primary />
             <ActionButton onClick={downloadCard} icon={<ArrowDownToLine className="size-4" />} label="Download card" />
             <ActionButton onClick={() => setShareOpen(true)} icon={<Eye className="size-4" />} label="Preview share card" />
             <ActionButton onClick={copyResult} icon={<Clipboard className="size-4" />} label="Copy result" />
-            <ActionButton onClick={copyChallenge} icon={<Link2 className="size-4" />} label="Copy challenge" />
+            <ActionButton onClick={copyPublicLink} icon={<Link2 className="size-4" />} label="Copy link" />
           </div>
 
           <div className="mx-auto mt-4 max-w-2xl">
@@ -256,6 +320,12 @@ async function writeClipboard(value: string) {
   } catch {
     return false;
   }
+}
+
+async function dataUrlToFile(dataUrl: string) {
+  const response = await fetch(dataUrl);
+  const blob = await response.blob();
+  return new File([blob], "cookedmeter-verdict.png", { type: "image/png" });
 }
 
 function ActionButton({
